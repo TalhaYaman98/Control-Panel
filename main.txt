@@ -1,0 +1,194 @@
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "dwt_stm32_delay.h"     // HC-SR04 için mikro saniye üreten fonksiyon
+#include "stm32_tm1637.h"		 // 4 digit display için kütüphane
+#include <stdio.h>
+#include <stdlib.h>
+/* USER CODE END Includes */
+
+
+/* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim1;
+
+UART_HandleTypeDef huart3;
+
+/* USER CODE BEGIN PV */
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+char Uart_Data[10] = "";   // string çevirme için
+
+uint8_t rx_buffer[20];     // 10 baytlık gelen veri
+uint8_t rx_index = 0;      // Sıradaki byte konumu
+uint8_t rx_byte;           // Tek baytlık okuma
+uint8_t data_ready = 0;    // veri durumu
+
+uint32_t time;             // HCSR04 ile ölçülen süre
+uint16_t distance;		   // ölçülen sürenin 58' bölünmesi ile elde edilen mesafe (cm)
+
+int gelen_sayi = 1111;     // port üzerinden gelen veri için değişken
+
+//clk = pc0
+//dio = pc1
+
+//trig = pa1
+//echo = pa2
+
+//tx = pd8
+//rx = pd9
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+/* USER CODE END PV */
+
+
+/* USER CODE BEGIN 0 */
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+uint32_t read_hcsr04(){                             // HC-SR04 okuması
+
+	uint32_t local_time=0;						    // Yankının dönüş süresini (mikro saniye cinsinden) tutacak sayaç değişkeni
+
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, 1);		// TRIG pini (örneğin PA1)
+	DWT_Delay_us(10);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, 0);
+
+	while(!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2));    // ECHO pini 1 olana kadar bekle (yankı başlasın)
+
+	while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2)){		// ECHO pini 1 olduğu sürece
+		local_time++;								// Her 1 mikro saniyede sayaç artırılır
+		DWT_Delay_us(1);							// 1 mikro saniye bekle
+	}
+
+	return local_time;								// Ölçülen süreyi geri döndür
+
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+/* USER CODE END 0 */
+
+
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART3_UART_Init();
+  MX_TIM1_Init();
+  /* USER CODE BEGIN 2 */
+  //-----------------------------------------------------------------------------------------------------------------------------------------------
+  __HAL_UART_ENABLE_IT(&huart3, UART_IT_RXNE);  // UART RX kesmesi aktif hale geldi
+  HAL_UART_Receive_IT(&huart3, &rx_byte, 1);    // UART3'ten 1 byte'lık veri almak için kesmeli alım başlatılıyor
+
+  DWT_Delay_Init();								// DWT zamanlayıcıyı başlat (mikro saniyelik hassasiyetli delay için)
+
+  tm1637Init();									// TM1637 4-digit 7 segment display modülünü başlat
+
+  tm1637SetBrightness(8);                       // Ekran parlaklığı maksimum seviyeye ayarlandı
+  tm1637DisplayDecimal(1111, 1);                // 1111 sayısı ekrana yazıldı, noktalar aktif
+  //-----------------------------------------------------------------------------------------------------------------------------------------------
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+	//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+	time = read_hcsr04();                                             // Yankının dönüş süresi mikro saniye cinsinden alınır
+	distance = time / 58;                                             // Mesafe cm cinsine çevrilir (yaklaşık 343 m/s sese göre dönüş süresi üzerinden)
+	HAL_Delay(100);
+
+	sprintf(Uart_Data, "%u\n", distance);                             // String'e çevir
+
+	HAL_UART_Transmit(&huart3, Uart_Data, strlen(Uart_Data) , 10);    // UART3 üzerinden veriyi gönder
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+    if (data_ready)                                                   // Eğer UART üzerinden bir veri geldi ve tam veri tamamlandıysa
+    {
+        data_ready = 0;                                               // Veri işlendi, bayrağı sıfırla
+        rx_buffer[rx_index] = '\0';                                   // Buffer'ı C string formatına çevir (null-terminate)
+
+        gelen_sayi = atoi((char*)rx_buffer);                          // Gelen string veriyi integer'a çevir
+
+
+        if (gelen_sayi >= 1 && gelen_sayi <= 10)
+        {
+            HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+        }
+
+        else if (gelen_sayi >= 11 && gelen_sayi <= 20)
+        {
+            HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+        }
+
+        else if (gelen_sayi >= 21 && gelen_sayi <= 30)
+        {
+            HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
+        }
+
+        else
+        {
+            HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+        }
+
+        memset(rx_buffer, 0, sizeof(rx_buffer));                      // Tüm buffer temizlenir
+        rx_index = 0;
+    }
+
+    tm1637SetBrightness(8);
+    tm1637DisplayDecimal(gelen_sayi, 1);                              // UART'tan gelen sayıyı ekranda göster
+
+    //-----------------------------------------------------------------------------------------------------------------------------------------------
+  }
+  /* USER CODE END 3 */
+}
+
+
+/* USER CODE BEGIN 4 */
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){          // UART kesmesiyle her bir karakter alındığında çağrılan callback fonksiyonu
+
+    if (huart->Instance == USART3)                                // Bu callback yalnızca USART3 için çalışacak şekilde sınırlandırılmış
+    {
+        if (rx_byte == '.')                                       // Nokta karakteri geldiğinde verinin tamamlandığı varsayılır
+        {
+            data_ready = 1;                                       // Ana döngüde işlenecek veri hazır bayrağı
+        }
+        else
+        {
+            if (rx_index < sizeof(rx_buffer) - 1)                 // Buffer taşması önleniyor, boyut sınırı kontrol ediliyor
+            {
+                rx_buffer[rx_index++] = rx_byte;                  // Alınan karakteri buffer'a ekle
+            }
+        }
+
+        HAL_UART_Receive_IT(&huart3, &rx_byte, 1);                // Bir sonraki karakter alımı başlatılır
+    }
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+/* USER CODE END 4 */
