@@ -22,18 +22,22 @@ ve kontrol edebilirsiniz.
 Donanım Bağlantıları
 --------------------
   HC-SR04:
+  
     • TRIG -> PA1  
     • ECHO -> PA2  
 
   TM1637 4-digit Display:
+  
     • CLK  -> PC0  
     • DIO  -> PC1  
 
   UART3 (Kesme ile RX/TX):
+  
     • TX   -> PD8  
     • RX   -> PD9  
 
   LED’ler (GPIOD):
+  
     • Mesafe  1–10 cm arası: PD13  
     • Mesafe 11–20 cm arası: PD14  
     • Mesafe 21–30 cm arası: PD12  
