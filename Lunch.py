@@ -1,7 +1,7 @@
 import sys, serial, time
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow
-from pencere import Ui_MainWindow
+from Interface import Ui_MainWindow
 
 class pencere(QMainWindow):                                 # QMainWindow'dan türetilen GUI için ana sınıf
 
