@@ -44,7 +44,7 @@ Yazılım Bağımlılıkları
   • dwt_stm32_delay.h (DWT mikro saniye delay)  
   • stm32_tm1637.h (TM1637 display sürücüsü)  
   • stdio.h, stdlib.h, string.h  
-  • Python kütüphaneleri PyQt5, Serial, time
+  • Python kütüphaneleri PyQt5, Serial, time, sys
 
 Kurulum & Derleme
 -----------------
